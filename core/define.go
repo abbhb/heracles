@@ -13,7 +13,7 @@ type Fixture interface {
 }
 
 type Exporter interface {
-	Start(ctx context.Context, port string) (string, error)
+	Start(ctx context.Context) (string, error)
 }
 
 type MetricFamiliesChecker interface {

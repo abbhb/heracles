@@ -4,8 +4,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/docker/go-connections/nat"
-
 	"github.com/rotisserie/eris"
 	"github.com/testcontainers/testcontainers-go/modules/compose"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -55,21 +53,19 @@ func (c *DockerCompose) TearDown(ctx context.Context) error {
 }
 
 // Start wait for the service to be ready and returns the endpoint.
-func (c *DockerCompose) Start(ctx context.Context, port string) (string, error) {
+func (c *DockerCompose) Start(ctx context.Context) (string, error) {
 	container, err := c.ServiceContainer(ctx, c.exporterService)
 	if err != nil {
 		return "", eris.Wrap(err, "failed to get service container")
 	}
 
-	servicePort := nat.Port(port)
-
-	strategy := wait.NewHostPortStrategy(servicePort).WithStartupTimeout(c.startupTimeout)
+	strategy := wait.ForExposedPort().WithStartupTimeout(c.startupTimeout)
 	err = strategy.WaitUntilReady(ctx, container)
 	if err != nil {
 		return "", eris.Wrap(err, "failed to wait for service")
 	}
 
-	endpoint, err := container.PortEndpoint(ctx, nat.Port(port), "http")
+	endpoint, err := container.Endpoint(ctx, "http")
 	if err != nil {
 		return "", eris.Wrap(err, "failed to get endpoint")
 	}
