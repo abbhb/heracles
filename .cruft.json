@@ -1,0 +1,26 @@
+{
+  "template": "https://github.com/lacion/cookiecutter-golang.git",
+  "commit": "d8e034b722276dede208f092dcf9ebbfeb9ab7f1",
+  "checkout": null,
+  "context": {
+    "cookiecutter": {
+      "full_name": "Heracles",
+      "github_username": "mrlyc",
+      "app_name": "heracles",
+      "project_short_description": "Prometheus exporter integration testing tools",
+      "docker_hub_username": "mrlyc",
+      "docker_image": "mrlyc/heracles:latest",
+      "docker_build_image": "lacion/alpine-golang-buildimage",
+      "docker_build_image_version": "1.13",
+      "go_mod_or_dep": "mod",
+      "use_docker": "n",
+      "use_git": "y",
+      "use_logrus_logging": "y",
+      "use_viper_config": "y",
+      "use_cobra_cmd": "y",
+      "use_ci": "none",
+      "_template": "https://github.com/lacion/cookiecutter-golang.git"
+    }
+  },
+  "directory": null
+}
