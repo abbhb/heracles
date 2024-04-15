@@ -1,18 +1,13 @@
-# heracles
+# Heracles
 
-Prometheus exporter integration testing tools
+Prometheus exporter integration testing tools.
 
 ## Getting started
 
-This project requires Go to be installed. On OS X with Homebrew you can just run `brew install go`.
+Heracles automatically launches the relevant services based on the docker compose configuration, automatically collects metrics from the exporter service, and performs validation according to the configuration file requirements.
 
-Running it then should be as simple as:
+[![asciicast](https://asciinema.org/a/wFU8xmJ2NHSWgwIhmzpSTzzMn.svg)](https://asciinema.org/a/wFU8xmJ2NHSWgwIhmzpSTzzMn)
 
-```console
-$ make
-$ ./bin/heracles
-```
+## Configuration
 
-### Testing
-
-``make test``
+See [config-example.yml](config-example.yml)

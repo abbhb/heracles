@@ -11,12 +11,11 @@ import (
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
 	"github.com/rotisserie/eris"
-	"github.com/spf13/viper"
 )
 
 var ErrCheck = errors.New("check failed")
 
-type metricsConfig struct {
+type MetricsConfig struct {
 	Name             string   `mapstructure:"name"`
 	Type             string   `mapstructure:"type"`
 	Labels           []string `mapstructure:"labels"`
@@ -26,8 +25,8 @@ type metricsConfig struct {
 type Runner struct {
 	exporter   Exporter
 	fixtures   []Fixture
-	config     *viper.Viper
 	httpClient HTTPClient
+	metricPath string
 }
 
 func (r *Runner) SetupFixtures(ctx context.Context) error {
@@ -51,7 +50,7 @@ func (r *Runner) TearDownFixtures(ctx context.Context) error {
 }
 
 func (r *Runner) FetchMetricFamilies(ctx context.Context, baseUrl string) (map[string]*dto.MetricFamily, error) {
-	url, err := url.JoinPath(baseUrl, r.config.GetString("exporter.path"))
+	url, err := url.JoinPath(baseUrl, r.metricPath)
 	if err != nil {
 		return nil, eris.Wrap(err, "failed to join url")
 	}
@@ -75,7 +74,7 @@ func (r *Runner) FetchMetricFamilies(ctx context.Context, baseUrl string) (map[s
 		return nil, eris.Wrap(err, "failed to parse metrics")
 	}
 
-	log.Infof("found %d metric families", len(metricFamily))
+	log.Infof("found %d metrics", len(metricFamily))
 
 	return metricFamily, nil
 }
@@ -103,23 +102,26 @@ func (r *Runner) Run(ctx context.Context, callback func(ctx context.Context, met
 
 	err = callback(ctx, metricFamilies)
 	if err != nil {
-		return eris.Wrap(err, "callback failed")
+		return err
 	}
 
 	return nil
 }
 
-func NewRunner(exporter Exporter, fixtures []Fixture, conf *viper.Viper) *Runner {
+func NewRunner(exporter Exporter, fixtures []Fixture, metricPath string) *Runner {
 	return &Runner{
 		exporter:   exporter,
 		fixtures:   fixtures,
-		config:     conf,
 		httpClient: http.DefaultClient,
+		metricPath: metricPath,
 	}
 }
 
 type MetricChecker struct {
 	*Runner
+	disallowedMetrics []string
+	allowEmpty        bool
+	metrics           []MetricsConfig
 }
 
 func (c *MetricChecker) CheckMetrics(ctx context.Context, metricFamily map[string]*dto.MetricFamily) error {
@@ -130,6 +132,8 @@ func (c *MetricChecker) CheckMetrics(ctx context.Context, metricFamily map[strin
 
 	var messages []string
 	for _, checker := range checkers {
+		log.Debugf("checking metrics by checker %v", checker)
+
 		ok, message := checker.Check(metricFamily)
 		if !ok {
 			messages = append(messages, message)
@@ -137,7 +141,7 @@ func (c *MetricChecker) CheckMetrics(ctx context.Context, metricFamily map[strin
 	}
 
 	if len(messages) > 0 {
-		return eris.Wrap(ErrCheck, "details: \n"+strings.Join(messages, "\n"))
+		return eris.Wrap(ErrCheck, "details: \n"+strings.Join(messages, "\n")+"\nresult")
 	}
 
 	return nil
@@ -146,22 +150,16 @@ func (c *MetricChecker) CheckMetrics(ctx context.Context, metricFamily map[strin
 func (c *MetricChecker) BuildChecker() ([]MetricFamiliesChecker, error) {
 	checkerBuilder := NewMetricFamiliesCheckerBuilder()
 
-	disallowedMetrics := c.config.GetStringSlice("exporter.disallowed_metrics")
+	disallowedMetrics := c.disallowedMetrics
 	if len(disallowedMetrics) != 0 {
 		checkerBuilder.DisallowedMetrics(disallowedMetrics)
 	}
 
-	if !c.config.GetBool("exporter.allow_empty") {
+	if !c.allowEmpty {
 		checkerBuilder.EmptyMetricsChecker()
 	}
 
-	var metrics []metricsConfig
-	err := c.config.UnmarshalKey("exporter.metrics", &metrics)
-	if err != nil {
-		return nil, eris.Wrap(err, "failed to unmarshal metrics")
-	}
-
-	for _, metric := range metrics {
+	for _, metric := range c.metrics {
 		checkerBuilder.MetricExistsChecker(metric.Name)
 
 		if metric.Type != "" {
@@ -184,8 +182,18 @@ func (c *MetricChecker) Check(ctx context.Context) error {
 	return c.Run(ctx, c.CheckMetrics)
 }
 
-func NewMetricChecker(exporter Exporter, fixtures []Fixture, conf *viper.Viper) *MetricChecker {
+func NewMetricChecker(
+	exporter Exporter,
+	fixtures []Fixture,
+	metricPath string,
+	disallowedMetrics []string,
+	allowEmpty bool,
+	metrics []MetricsConfig,
+) *MetricChecker {
 	return &MetricChecker{
-		Runner: NewRunner(exporter, fixtures, conf),
+		Runner:            NewRunner(exporter, fixtures, metricPath),
+		disallowedMetrics: disallowedMetrics,
+		allowEmpty:        allowEmpty,
+		metrics:           metrics,
 	}
 }

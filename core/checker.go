@@ -2,12 +2,17 @@ package core
 
 import (
 	"fmt"
+	"strings"
 
 	dto "github.com/prometheus/client_model/go"
 )
 
 type DisallowCertainMetricsChecker struct {
 	disallowedMetrics []string
+}
+
+func (d DisallowCertainMetricsChecker) String() string {
+	return fmt.Sprintf("DisallowCertainMetricsChecker{disallowedMetrics: %v}", d.disallowedMetrics)
 }
 
 func NewDisallowCertainMetricsChecker(metrics []string) *DisallowCertainMetricsChecker {
@@ -27,6 +32,10 @@ func (c *DisallowCertainMetricsChecker) Check(metricFamilies map[string]*dto.Met
 
 type DisallowEmptyMetricsChecker struct{}
 
+func (d DisallowEmptyMetricsChecker) String() string {
+	return "DisallowEmptyMetricsChecker"
+}
+
 func NewDisallowEmptyMetricsChecker() *DisallowEmptyMetricsChecker {
 	return &DisallowEmptyMetricsChecker{}
 }
@@ -40,6 +49,10 @@ func (c *DisallowEmptyMetricsChecker) Check(metricFamilies map[string]*dto.Metri
 
 type SingleMetricExistsChecker struct {
 	expectedMetric string
+}
+
+func (s SingleMetricExistsChecker) String() string {
+	return fmt.Sprintf("SingleMetricExistsChecker{expectedMetric: %s}", s.expectedMetric)
 }
 
 func NewSingleMetricExistsChecker(expectedMetric string) *SingleMetricExistsChecker {
@@ -61,6 +74,10 @@ type SingleMetricTypeChecker struct {
 	expectedType   string
 }
 
+func (s SingleMetricTypeChecker) String() string {
+	return fmt.Sprintf("SingleMetricTypeChecker{expectedMetric: %s, expectedType: %s}", s.expectedMetric, s.expectedType)
+}
+
 func NewSingleMetricTypeChecker(expectedMetric string, expectedType string) *SingleMetricTypeChecker {
 	return &SingleMetricTypeChecker{
 		expectedMetric: expectedMetric,
@@ -74,7 +91,7 @@ func (c *SingleMetricTypeChecker) Check(metricFamilies map[string]*dto.MetricFam
 		return false, fmt.Sprintf("expected metric %s is missing", c.expectedMetric)
 	}
 	metricType := metricFamily.GetType()
-	if metricType.String() != c.expectedType {
+	if metricType.String() != strings.ToUpper(c.expectedType) {
 		return false, fmt.Sprintf("expected metric %s should be of type %s but was %s", c.expectedMetric, c.expectedType, metricFamily.GetType())
 	}
 	return true, ""
@@ -83,6 +100,10 @@ func (c *SingleMetricTypeChecker) Check(metricFamilies map[string]*dto.MetricFam
 type MetricLabelChecker struct {
 	expectedMetric string
 	expectedLabels []string
+}
+
+func (m MetricLabelChecker) String() string {
+	return fmt.Sprintf("MetricLabelChecker{expectedMetric: %s, expectedLabels: %v}", m.expectedMetric, m.expectedLabels)
 }
 
 func NewMetricLabelChecker(expectedMetric string, expectedLabels []string) *MetricLabelChecker {

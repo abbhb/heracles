@@ -1,0 +1,24 @@
+exporter:
+  compose_file: docker-compose-example.yml
+  service: exporter
+  startup_wait: 1s
+  path: /metrics
+  allow_empty: false
+  disallowed_metrics:
+    - example_metric
+  metrics:
+    - name: pg_up
+      type: gauge
+    - name: pg_exporter_scrapes_total
+      type: counter
+      disallowed_metrics:
+        - not_exist
+    - name: postgres_exporter_build_info
+      labels:
+        - branch
+        - goarch
+        - goos
+        - goversion
+        - revision
+        - version
+        - tags

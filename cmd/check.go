@@ -15,25 +15,40 @@ var checkCmd = &cobra.Command{
 	Use:   "check",
 	Short: "Check exporter metrics",
 	Run: func(cmd *cobra.Command, args []string) {
-		flags := cmd.Flags()
-		dockerCompose, _ := flags.GetString("docker-compose")
 		config := viper.GetViper()
 
-		compose, err := core.NewDockerCompose(
-			dockerCompose,
-			config.GetString("exporter.service"),
-			config.GetDuration("exporter.duration"),
-		)
+		compose, err := core.NewDockerCompose(config.GetString("exporter.compose_file"))
 		if err != nil {
 			log.Fatalf("failed to create docker compose: %+v", err)
 		}
 
-		checker := core.NewMetricChecker(compose, []core.Fixture{compose}, config)
+		exporter := core.NewDockerComposeExporter(
+			compose,
+			config.GetString("exporter.service"),
+			config.GetDuration("exporter.startup_wait"),
+		)
+
+		var metrics []core.MetricsConfig
+		err = config.UnmarshalKey("exporter.metrics", &metrics)
+		if err != nil {
+			log.Fatalf("failed to unmarshal metrics: %+v", err)
+		}
+
+		checker := core.NewMetricChecker(
+			exporter,
+			[]core.Fixture{compose},
+			config.GetString("exporter.path"),
+			config.GetStringSlice("exporter.disallowed_metrics"),
+			config.GetBool("exporter.allow_empty"),
+			metrics,
+		)
 		err = checker.Check(cmd.Context())
 
 		switch eris.Cause(err) {
+		case nil:
+			log.Infof("metrics check passed!")
 		case core.ErrCheck:
-			log.Warnf("metrics check failed: %v", err)
+			log.Warnf("metrics check failed, %v", err)
 		default:
 			log.Fatalf("failed to run: %+v", err)
 		}
@@ -43,13 +58,11 @@ var checkCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(checkCmd)
 
-	flags := checkCmd.Flags()
-	flags.StringP("docker-compose", "d", "docker-compose.yml", "Specify the docker-compose file")
-
 	config := viper.GetViper()
+	config.SetDefault("exporter.compose_file", "docker-compose.yml")
 	config.SetDefault("exporter.service", "exporter")
 	config.SetDefault("exporter.path", "/metrics")
-	config.SetDefault("exporter.duration", time.Second)
+	config.SetDefault("exporter.startup_wait", time.Second)
 	config.SetDefault("exporter.allow_empty", false)
 	config.SetDefault("exporter.disallowed_metrics", nil)
 	config.SetDefault("exporter.metrics", nil)
