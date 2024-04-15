@@ -2,6 +2,10 @@ exporter:
   compose_file: docker-compose-example.yml
   service: exporter
   startup_wait: 1s
+  hooks:
+    - name: echo
+      setup: echo setup
+      teardown: echo teardown
   path: /metrics
   allow_empty: false
   disallowed_metrics:

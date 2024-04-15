@@ -34,9 +34,19 @@ var checkCmd = &cobra.Command{
 			log.Fatalf("failed to unmarshal metrics: %+v", err)
 		}
 
+		fixtureBuilder := core.NewFixtureBuilder(compose)
+
+		var scriptFixtures []core.ScriptFixture
+		err = config.UnmarshalKey("exporter.hooks", &scriptFixtures)
+		if err != nil {
+			log.Fatalf("failed to unmarshal hooks: %+v", err)
+		}
+
+		fixtureBuilder.AppendScriptFixtures(scriptFixtures...)
+
 		checker := core.NewMetricChecker(
 			exporter,
-			[]core.Fixture{compose},
+			fixtureBuilder.Build(),
 			config.GetString("exporter.path"),
 			config.GetStringSlice("exporter.disallowed_metrics"),
 			config.GetBool("exporter.allow_empty"),
@@ -66,4 +76,5 @@ func init() {
 	config.SetDefault("exporter.allow_empty", false)
 	config.SetDefault("exporter.disallowed_metrics", nil)
 	config.SetDefault("exporter.metrics", nil)
+	config.SetDefault("exporter.hooks", nil)
 }

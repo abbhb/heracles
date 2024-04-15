@@ -31,6 +31,7 @@ type Runner struct {
 
 func (r *Runner) SetupFixtures(ctx context.Context) error {
 	for _, fixture := range r.fixtures {
+		log.Debugf("setting up fixture: %s", fixture)
 		if err := fixture.Setup(ctx); err != nil {
 			return eris.Wrap(err, "failed to setup fixture")
 		}
@@ -40,8 +41,9 @@ func (r *Runner) SetupFixtures(ctx context.Context) error {
 }
 
 func (r *Runner) TearDownFixtures(ctx context.Context) error {
-	for _, fixture := range r.fixtures {
-		if err := fixture.TearDown(ctx); err != nil {
+	for i := len(r.fixtures) - 1; i >= 0; i-- {
+		log.Debugf("tearing down fixture: %s", r.fixtures[i])
+		if err := r.fixtures[i].TearDown(ctx); err != nil {
 			return eris.Wrap(err, "failed to tear down fixture")
 		}
 	}

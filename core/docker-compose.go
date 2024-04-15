@@ -13,6 +13,10 @@ type DockerCompose struct {
 	compose.ComposeStack
 }
 
+func (c *DockerCompose) String() string {
+	return "DockerCompose"
+}
+
 func NewDockerCompose(composeFilePath string) (*DockerCompose, error) {
 	compose, err := compose.NewDockerCompose(composeFilePath)
 	if err != nil {
