@@ -1,6 +1,6 @@
 module github.com/mrlyc/heracles
 
-go 1.21.6
+go 1.21
 
 require (
 	github.com/docker/go-connections v0.5.0

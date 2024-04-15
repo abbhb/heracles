@@ -2,15 +2,19 @@ package core
 
 import (
 	"context"
-	"io"
+	"errors"
 	"net/http"
 	"net/url"
 	"strings"
 
+	"github.com/mrlyc/heracles/log"
+	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
 	"github.com/rotisserie/eris"
 	"github.com/spf13/viper"
 )
+
+var ErrCheck = errors.New("check failed")
 
 type metricsConfig struct {
 	Name             string   `mapstructure:"name"`
@@ -46,7 +50,7 @@ func (r *Runner) TearDownFixtures(ctx context.Context) error {
 	return nil
 }
 
-func (r *Runner) FetchMetrics(ctx context.Context, baseUrl string) (io.ReadCloser, error) {
+func (r *Runner) FetchMetricFamilies(ctx context.Context, baseUrl string) (map[string]*dto.MetricFamily, error) {
 	url, err := url.JoinPath(baseUrl, r.config.GetString("exporter.path"))
 	if err != nil {
 		return nil, eris.Wrap(err, "failed to join url")
@@ -57,18 +61,71 @@ func (r *Runner) FetchMetrics(ctx context.Context, baseUrl string) (io.ReadClose
 		return nil, eris.Wrap(err, "failed to fetch metrics")
 	}
 
+	log.Infof("fetch metrics from %s, status code: %d", url, resp.StatusCode)
+
 	if resp.StatusCode != http.StatusOK {
 		return nil, eris.New("failed to fetch metrics: " + resp.Status)
 	}
 
-	return resp.Body, nil
+	defer resp.Body.Close()
+
+	var parser expfmt.TextParser
+	metricFamily, err := parser.TextToMetricFamilies(resp.Body)
+	if err != nil {
+		return nil, eris.Wrap(err, "failed to parse metrics")
+	}
+
+	log.Infof("found %d metric families", len(metricFamily))
+
+	return metricFamily, nil
 }
 
-func (r *Runner) CheckMetrics(reader io.Reader, checkers []MetricFamiliesChecker) error {
-	var parser expfmt.TextParser
-	metricFamily, err := parser.TextToMetricFamilies(reader)
+func (r *Runner) Run(ctx context.Context, callback func(ctx context.Context, metricFamilies map[string]*dto.MetricFamily) error) error {
+	if err := r.SetupFixtures(ctx); err != nil {
+		return eris.Wrap(err, "failed to setup fixtures")
+	}
+
+	defer func() {
+		if err := r.TearDownFixtures(ctx); err != nil {
+			log.Errorf("failed to tear down fixtures: %+v", err)
+		}
+	}()
+
+	baseUrl, err := r.exporter.Start(ctx)
 	if err != nil {
-		return eris.Wrap(err, "failed to parse metrics")
+		return eris.Wrap(err, "failed to start exporter")
+	}
+
+	metricFamilies, err := r.FetchMetricFamilies(ctx, baseUrl)
+	if err != nil {
+		return eris.Wrap(err, "failed to fetch metrics")
+	}
+
+	err = callback(ctx, metricFamilies)
+	if err != nil {
+		return eris.Wrap(err, "callback failed")
+	}
+
+	return nil
+}
+
+func NewRunner(exporter Exporter, fixtures []Fixture, conf *viper.Viper) *Runner {
+	return &Runner{
+		exporter:   exporter,
+		fixtures:   fixtures,
+		config:     conf,
+		httpClient: http.DefaultClient,
+	}
+}
+
+type MetricChecker struct {
+	*Runner
+}
+
+func (c *MetricChecker) CheckMetrics(ctx context.Context, metricFamily map[string]*dto.MetricFamily) error {
+	checkers, err := c.BuildChecker()
+	if err != nil {
+		return eris.Wrap(err, "failed to build checkers")
 	}
 
 	var messages []string
@@ -80,26 +137,26 @@ func (r *Runner) CheckMetrics(reader io.Reader, checkers []MetricFamiliesChecker
 	}
 
 	if len(messages) > 0 {
-		return eris.New("metrics check failed: \n" + strings.Join(messages, "\n"))
+		return eris.Wrap(ErrCheck, "details: \n"+strings.Join(messages, "\n"))
 	}
 
 	return nil
 }
 
-func (r *Runner) BuildChecker() ([]MetricFamiliesChecker, error) {
+func (c *MetricChecker) BuildChecker() ([]MetricFamiliesChecker, error) {
 	checkerBuilder := NewMetricFamiliesCheckerBuilder()
 
-	disallowedMetrics := r.config.GetStringSlice("exporter.disallowed_metrics")
+	disallowedMetrics := c.config.GetStringSlice("exporter.disallowed_metrics")
 	if len(disallowedMetrics) != 0 {
 		checkerBuilder.DisallowedMetrics(disallowedMetrics)
 	}
 
-	if !r.config.GetBool("exporter.allow_empty") {
+	if !c.config.GetBool("exporter.allow_empty") {
 		checkerBuilder.EmptyMetricsChecker()
 	}
 
 	var metrics []metricsConfig
-	err := r.config.UnmarshalKey("exporter.metrics", &metrics)
+	err := c.config.UnmarshalKey("exporter.metrics", &metrics)
 	if err != nil {
 		return nil, eris.Wrap(err, "failed to unmarshal metrics")
 	}
@@ -123,42 +180,12 @@ func (r *Runner) BuildChecker() ([]MetricFamiliesChecker, error) {
 	return checkerBuilder.Build(), nil
 }
 
-func (r *Runner) Run(ctx context.Context) error {
-	if err := r.SetupFixtures(ctx); err != nil {
-		return eris.Wrap(err, "failed to setup fixtures")
-	}
-
-	baseUrl, err := r.exporter.Start(ctx)
-	if err != nil {
-		return eris.Wrap(err, "failed to start exporter")
-	}
-
-	reader, err := r.FetchMetrics(ctx, baseUrl)
-	if err != nil {
-		return eris.Wrap(err, "failed to fetch metrics")
-	}
-	defer reader.Close()
-
-	checkers, err := r.BuildChecker()
-	if err != nil {
-		return eris.Wrap(err, "failed to build checkers")
-	}
-
-	if err := r.CheckMetrics(reader, checkers); err != nil {
-		return eris.Wrap(err, "failed to check metrics")
-	}
-
-	if err := r.TearDownFixtures(ctx); err != nil {
-		return eris.Wrap(err, "failed to tear down fixtures")
-	}
-
-	return nil
+func (c *MetricChecker) Check(ctx context.Context) error {
+	return c.Run(ctx, c.CheckMetrics)
 }
 
-func NewRunner(exporter Exporter, fixtures []Fixture, conf *viper.Viper) *Runner {
-	return &Runner{
-		exporter: exporter,
-		fixtures: fixtures,
-		config:   conf,
+func NewMetricChecker(exporter Exporter, fixtures []Fixture, conf *viper.Viper) *MetricChecker {
+	return &MetricChecker{
+		Runner: NewRunner(exporter, fixtures, conf),
 	}
 }

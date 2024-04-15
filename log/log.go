@@ -4,7 +4,7 @@ import (
 	"os"
 
 	"github.com/sirupsen/logrus"
-	"github.com/mrlyc/heracles/config"
+	"github.com/spf13/viper"
 )
 
 // Logger defines a set of methods for writing application logs. Derived from and
@@ -38,22 +38,19 @@ type Logger interface {
 
 var defaultLogger *logrus.Logger
 
-func init() {
-	defaultLogger = newLogrusLogger(config.Config())
+func UpdateDefaultLogger() {
+	defaultLogger = newLogrusLogger(viper.GetViper())
 }
 
-
 // NewLogger returns a configured logrus instance
-func NewLogger(cfg config.Provider) *logrus.Logger {
+func NewLogger(cfg *viper.Viper) *logrus.Logger {
 	return newLogrusLogger(cfg)
 }
 
-
-
-func newLogrusLogger(cfg config.Provider) *logrus.Logger {
+func newLogrusLogger(cfg *viper.Viper) *logrus.Logger {
 
 	l := logrus.New()
-	
+
 	if cfg.GetBool("json_logs") {
 		l.Formatter = new(logrus.JSONFormatter)
 	}
@@ -69,7 +66,7 @@ func newLogrusLogger(cfg config.Provider) *logrus.Logger {
 	default:
 		l.Level = logrus.DebugLevel
 	}
-	
+
 	return l
 }
 

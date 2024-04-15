@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/mrlyc/heracles/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -48,7 +49,7 @@ func initConfig() {
 }
 
 func init() {
-	cobra.OnInitialize(initConfig)
+	cobra.OnInitialize(initConfig, log.UpdateDefaultLogger)
 
 	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", ".heracles.yaml", "config file (default is .heracles.yaml)")
 }

@@ -32,7 +32,7 @@ func NewDockerCompose(composeFilePath string, service string, startupTimeout tim
 // Setup starts the docker-compose stack.
 func (c *DockerCompose) Setup(ctx context.Context) error {
 	err := c.Up(
-		ctx, compose.RunServices(c.exporterService), compose.Wait(true),
+		ctx, compose.Wait(true), compose.RemoveOrphans(true),
 	)
 
 	if err != nil {
