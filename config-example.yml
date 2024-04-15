@@ -1,4 +1,4 @@
-exporter:
+example:
   compose_file: docker-compose-example.yml
   service: exporter
   startup_wait: 1s

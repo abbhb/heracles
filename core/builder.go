@@ -65,23 +65,3 @@ func NewMetricFamiliesCheckerBuilder() *MetricFamiliesCheckerBuilder {
 		metricsCheckers: make(map[string][]MetricFamiliesChecker),
 	}
 }
-
-type FixtureBuilder struct {
-	fixtures []Fixture
-}
-
-func (b *FixtureBuilder) Build() []Fixture {
-	return b.fixtures
-}
-
-func (b *FixtureBuilder) AppendScriptFixtures(fixtures ...ScriptFixture) {
-	for _, fixture := range fixtures {
-		b.fixtures = append(b.fixtures, fixture)
-	}
-}
-
-func NewFixtureBuilder(fixture ...Fixture) *FixtureBuilder {
-	return &FixtureBuilder{
-		fixtures: fixture,
-	}
-}
