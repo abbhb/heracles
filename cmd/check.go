@@ -8,6 +8,7 @@ import (
 	"github.com/mrlyc/heracles/log"
 	"github.com/rotisserie/eris"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"go.uber.org/dig"
 )
@@ -20,11 +21,14 @@ var checkCmd = &cobra.Command{
 		container := dig.New()
 		for name, f := range map[string]interface{}{
 			"context": cmd.Context,
-			"config": func() *viper.Viper {
-				flags := cmd.Flags()
+			"flags":   cmd.Flags,
+			"config": func(flags *pflag.FlagSet) *viper.Viper {
 				group, _ := flags.GetString("group")
 				root := viper.GetViper()
 				config := root.Sub(group)
+				if config == nil {
+					log.Fatalf("invalid group: %s", group)
+				}
 
 				config.SetDefault("compose_file", "docker-compose.yml")
 				config.SetDefault("service", "exporter")
@@ -37,8 +41,9 @@ var checkCmd = &cobra.Command{
 
 				return config
 			},
-			"docker-compose": func(config *viper.Viper) (*core.DockerCompose, error) {
-				return core.NewDockerCompose(config.GetString("compose_file"))
+			"docker-compose": func(config *viper.Viper, flags *pflag.FlagSet) (*core.DockerCompose, error) {
+				removeAllImages, _ := flags.GetBool("remove-all-images")
+				return core.NewDockerCompose(config.GetString("compose_file"), removeAllImages)
 			},
 			"exporter": func(config *viper.Viper, compose *core.DockerCompose) core.Exporter {
 				return core.NewDockerComposeExporter(
@@ -102,4 +107,5 @@ func init() {
 
 	flags := checkCmd.Flags()
 	flags.StringP("group", "g", "exporter", "config group")
+	flags.Bool("remove-all-images", false, "remove all images after check")
 }

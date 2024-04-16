@@ -11,20 +11,23 @@ import (
 
 type DockerCompose struct {
 	compose.ComposeStack
+
+	RemoveAllImages bool
 }
 
 func (c *DockerCompose) String() string {
 	return "DockerCompose"
 }
 
-func NewDockerCompose(composeFilePath string) (*DockerCompose, error) {
+func NewDockerCompose(composeFilePath string, RemoveAllImages bool) (*DockerCompose, error) {
 	compose, err := compose.NewDockerCompose(composeFilePath)
 	if err != nil {
 		return nil, eris.Wrap(err, "failed to create docker compose")
 	}
 
 	return &DockerCompose{
-		ComposeStack: compose,
+		ComposeStack:    compose,
+		RemoveAllImages: RemoveAllImages,
 	}, nil
 
 }
@@ -44,7 +47,14 @@ func (c *DockerCompose) Setup(ctx context.Context) error {
 
 // TearDown stops and removes the docker-compose stack.
 func (c *DockerCompose) TearDown(ctx context.Context) error {
-	err := c.Down(ctx, compose.RemoveOrphans(true))
+	var removeImages compose.RemoveImages
+	if c.RemoveAllImages {
+		removeImages = compose.RemoveImagesAll
+	} else {
+		removeImages = compose.RemoveImagesLocal
+	}
+
+	err := c.Down(ctx, compose.RemoveOrphans(true), removeImages)
 	if err != nil {
 		return eris.Wrap(err, "failed to tear down")
 	}
