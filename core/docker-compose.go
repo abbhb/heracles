@@ -96,3 +96,17 @@ func NewDockerComposeExporter(dockerCompose *DockerCompose, exporterService stri
 		startupTimeout:  startupTimeout,
 	}
 }
+
+type ExternalExporter struct {
+	baseurl string
+}
+
+func (e *ExternalExporter) Start(ctx context.Context) (string, error) {
+	return e.baseurl, nil
+}
+
+func NewExternalExporter(baseurl string) *ExternalExporter {
+	return &ExternalExporter{
+		baseurl: baseurl,
+	}
+}

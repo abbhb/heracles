@@ -33,6 +33,7 @@ var checkCmd = &cobra.Command{
 
 				config.SetDefault("compose_file", "docker-compose.yml")
 				config.SetDefault("service", "exporter")
+				config.SetDefault("base_url", "")
 				config.SetDefault("path", "/metrics")
 				config.SetDefault("wait", 3*time.Second)
 				config.SetDefault("allow_empty", false)
@@ -47,11 +48,15 @@ var checkCmd = &cobra.Command{
 				return core.NewDockerCompose(config.GetString("compose_file"), removeAllImages)
 			},
 			"exporter": func(config *viper.Viper, compose *core.DockerCompose) core.Exporter {
-				return core.NewDockerComposeExporter(
-					compose,
-					config.GetString("service"),
-					config.GetDuration("wait"),
-				)
+				if config.GetString("base_url") == "" {
+					return core.NewDockerComposeExporter(
+						compose,
+						config.GetString("service"),
+						config.GetDuration("wait"),
+					)
+				} else {
+					return core.NewExternalExporter(config.GetString("base_url"))
+				}
 			},
 			"metrics-config": func(config *viper.Viper) ([]core.MetricsConfig, error) {
 				var metrics []core.MetricsConfig
