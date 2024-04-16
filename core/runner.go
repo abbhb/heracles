@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/mrlyc/heracles/log"
 	dto "github.com/prometheus/client_model/go"
@@ -18,15 +19,17 @@ var ErrCheck = errors.New("check failed")
 type MetricsConfig struct {
 	Name             string   `mapstructure:"name"`
 	Type             string   `mapstructure:"type"`
+	Value            *float64 `mapstructure:"value"`
 	Labels           []string `mapstructure:"labels"`
 	DisallowedLabels []string `mapstructure:"disallowed_labels"`
 }
 
 type Runner struct {
-	exporter   Exporter
-	fixtures   []Fixture
-	httpClient HTTPClient
-	metricPath string
+	exporter     Exporter
+	fixtures     []Fixture
+	httpClient   HTTPClient
+	metricPath   string
+	waitDuration time.Duration
 }
 
 func (r *Runner) SetupFixtures(ctx context.Context) error {
@@ -97,6 +100,9 @@ func (r *Runner) Run(ctx context.Context, callback func(ctx context.Context, met
 		return eris.Wrap(err, "failed to start exporter")
 	}
 
+	log.Infof("waiting for %s", r.waitDuration)
+	time.Sleep(r.waitDuration)
+
 	metricFamilies, err := r.FetchMetricFamilies(ctx, baseUrl)
 	if err != nil {
 		return eris.Wrap(err, "failed to fetch metrics")
@@ -110,12 +116,13 @@ func (r *Runner) Run(ctx context.Context, callback func(ctx context.Context, met
 	return nil
 }
 
-func NewRunner(exporter Exporter, fixtures []Fixture, metricPath string) *Runner {
+func NewRunner(exporter Exporter, fixtures []Fixture, metricPath string, waitDuration time.Duration) *Runner {
 	return &Runner{
-		exporter:   exporter,
-		fixtures:   fixtures,
-		httpClient: http.DefaultClient,
-		metricPath: metricPath,
+		exporter:     exporter,
+		fixtures:     fixtures,
+		httpClient:   http.DefaultClient,
+		metricPath:   metricPath,
+		waitDuration: waitDuration,
 	}
 }
 
@@ -168,6 +175,10 @@ func (c *MetricChecker) BuildChecker() ([]MetricFamiliesChecker, error) {
 			checkerBuilder.MetricTypeChecker(metric.Name, metric.Type)
 		}
 
+		if metric.Value != nil {
+			checkerBuilder.MetricValueChecker(metric.Name, *metric.Value)
+		}
+
 		if len(metric.Labels) != 0 {
 			checkerBuilder.MetricLabelChecker(metric.Name, metric.Labels...)
 		}
@@ -191,9 +202,10 @@ func NewMetricChecker(
 	disallowedMetrics []string,
 	allowEmpty bool,
 	metrics []MetricsConfig,
+	waitDuration time.Duration,
 ) *MetricChecker {
 	return &MetricChecker{
-		Runner:            NewRunner(exporter, fixtures, metricPath),
+		Runner:            NewRunner(exporter, fixtures, metricPath, waitDuration),
 		disallowedMetrics: disallowedMetrics,
 		allowEmpty:        allowEmpty,
 		metrics:           metrics,

@@ -45,6 +45,11 @@ func (b *MetricFamiliesCheckerBuilder) MetricLabelChecker(metric string, label .
 	b.MetricsCheckers(metric, NewMetricLabelChecker(metric, label))
 }
 
+// MetricLabelDisallowChecker 添加一个指定指标值的检查器。
+func (b *MetricFamiliesCheckerBuilder) MetricValueChecker(metric string, value float64) {
+	b.MetricsCheckers(metric, NewMetricValueChecker(metric, value))
+}
+
 // MetricLabelDisallowChecker 添加一个禁止指定指标的指定标签的检查器。
 func (b *MetricFamiliesCheckerBuilder) MetricLabelDisallowChecker(metric string, label ...string) {
 	b.MetricsCheckers(metric, NewMetricLabelDisallowChecker(metric, label))

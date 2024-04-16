@@ -1,11 +1,7 @@
 exporter:
   compose_file: docker-compose-example.yml
   service: exporter
-  startup_wait: 1s
-  hooks:
-    - name: echo
-      setup: echo setup
-      teardown: echo teardown
+  wait: 3s
   path: /metrics
   allow_empty: false
   disallowed_metrics:
@@ -13,16 +9,13 @@ exporter:
   metrics:
     - name: pg_up
       type: gauge
+      value: 1
     - name: pg_exporter_scrapes_total
       type: counter
       disallowed_metrics:
         - not_exist
-    - name: postgres_exporter_build_info
+    - name: pg_database_size_bytes
       labels:
-        - branch
-        - goarch
-        - goos
-        - goversion
-        - revision
-        - version
-        - tags
+        - datname
+    - name: go_gc_duration_seconds
+      type: summary

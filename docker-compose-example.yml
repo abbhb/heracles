@@ -9,11 +9,13 @@ services:
       - POSTGRES_PASSWORD=heracles
       - POSTGRES_USER=mrlyc
       - POSTGRES_DB=example
+    networks:
+      - postgres_network
 
   exporter:
     image: quay.io/prometheuscommunity/postgres-exporter
     environment:
-      - DATA_SOURCE_NAME=postgresql://mrlyc:heracles@postgres/example?sslmode=disable
+      - DATA_SOURCE_NAME=postgresql://mrlyc:heracles@postgres:5432/example?sslmode=disable
     ports:
       - "9187:9187"
     depends_on:

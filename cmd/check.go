@@ -33,7 +33,7 @@ var checkCmd = &cobra.Command{
 				config.SetDefault("compose_file", "docker-compose.yml")
 				config.SetDefault("service", "exporter")
 				config.SetDefault("path", "/metrics")
-				config.SetDefault("startup_wait", time.Second)
+				config.SetDefault("wait", 3*time.Second)
 				config.SetDefault("allow_empty", false)
 				config.SetDefault("disallowed_metrics", nil)
 				config.SetDefault("metrics", nil)
@@ -49,17 +49,17 @@ var checkCmd = &cobra.Command{
 				return core.NewDockerComposeExporter(
 					compose,
 					config.GetString("service"),
-					config.GetDuration("startup_wait"),
+					config.GetDuration("wait"),
 				)
 			},
 			"metrics-config": func(config *viper.Viper) ([]core.MetricsConfig, error) {
 				var metrics []core.MetricsConfig
-				err := config.UnmarshalKey("exporter.metrics", &metrics)
+				err := config.UnmarshalKey("metrics", &metrics)
 				return metrics, eris.Wrap(err, "metrics-config unmarshaling failed")
 			},
 			"script-fixtures": func(config *viper.Viper) ([]core.ScriptFixture, error) {
 				var scriptFixtures []core.ScriptFixture
-				err := config.UnmarshalKey("exporter.hooks", &scriptFixtures)
+				err := config.UnmarshalKey("hooks", &scriptFixtures)
 				return scriptFixtures, eris.Wrap(err, "script-fixtures unmarshaling failed")
 			},
 			"fixtures": func(compose *core.DockerCompose, scriptFixtures []core.ScriptFixture) []core.Fixture {
@@ -78,6 +78,7 @@ var checkCmd = &cobra.Command{
 					config.GetStringSlice("disallowed_metrics"),
 					config.GetBool("allow_empty"),
 					metrics,
+					config.GetDuration("wait"),
 				)
 			},
 		} {

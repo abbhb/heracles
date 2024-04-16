@@ -166,3 +166,37 @@ func (c *MetricLabelDisallowChecker) Check(metricFamilies map[string]*dto.Metric
 	}
 	return true, ""
 }
+
+type MetricValueChecker struct {
+	expectedMetric string
+	expectedValue  float64
+}
+
+func (m MetricValueChecker) String() string {
+	return fmt.Sprintf("MetricValueChecker{expectedMetric: %s, expectedValue: %f}", m.expectedMetric, m.expectedValue)
+}
+
+func NewMetricValueChecker(expectedMetric string, expectedValue float64) *MetricValueChecker {
+	return &MetricValueChecker{
+		expectedMetric: expectedMetric,
+		expectedValue:  expectedValue,
+	}
+}
+
+func (c *MetricValueChecker) Check(metricFamilies map[string]*dto.MetricFamily) (bool, string) {
+	metricFamily, ok := metricFamilies[c.expectedMetric]
+	if !ok {
+		return false, fmt.Sprintf("expected metric %s is missing", c.expectedMetric)
+	}
+
+	for _, metric := range metricFamily.GetMetric() {
+		gauge := metric.GetGauge()
+		if gauge == nil {
+			return false, fmt.Sprintf("expected metric %s is not a gauge", c.expectedMetric)
+		}
+		if gauge.GetValue() != c.expectedValue {
+			return false, fmt.Sprintf("expected metric %s to have value %f, but has %f", c.expectedMetric, c.expectedValue, gauge.GetValue())
+		}
+	}
+	return true, ""
+}
