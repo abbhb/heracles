@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"os"
 	"time"
 
 	"github.com/mrlyc/heracles/core"
@@ -96,9 +97,10 @@ var checkCmd = &cobra.Command{
 		case nil:
 			log.Infof("metrics check passed!")
 		case core.ErrCheck:
-			log.Warnf("metrics check failed, %v", err)
+			log.Errorf("metrics check failed")
+			os.Exit(1)
 		default:
-			log.Fatalf("failed to run: %+v", err)
+			log.Fatalf("crashed: %v", err)
 		}
 	},
 }

@@ -199,7 +199,7 @@ func (c *MetricValueChecker) Check(metricFamilies map[string]*dto.MetricFamily) 
 			return false, fmt.Sprintf("expected metric %s is not a gauge", c.expectedMetric)
 		}
 		if gauge.GetValue() != c.expectedValue {
-			return false, fmt.Sprintf("expected metric %s to have value %f, but has %f", c.expectedMetric, c.expectedValue, gauge.GetValue())
+			return false, fmt.Sprintf("expected metric %s to have value %.2f, but has %.2f", c.expectedMetric, c.expectedValue, gauge.GetValue())
 		}
 	}
 	return true, ""

@@ -7,6 +7,7 @@ import (
 	"github.com/mrlyc/heracles/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/testcontainers/testcontainers-go"
 )
 
 var cfgFile string
@@ -48,8 +49,17 @@ func initConfig() {
 	}
 }
 
-func init() {
-	cobra.OnInitialize(initConfig, log.UpdateDefaultLogger)
+func initLogger() {
+	log.UpdateDefaultLogger()
+	testcontainers.Logger = log.GetDefaultLogger()
+}
 
-	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", ".heracles.yaml", "config file (default is .heracles.yaml)")
+func init() {
+	cobra.OnInitialize(initConfig, initLogger)
+
+	flags := rootCmd.PersistentFlags()
+	flags.StringVarP(&cfgFile, "config", "c", ".heracles.yaml", "config file (default is .heracles.yaml)")
+	flags.StringP("log-level", "l", "info", "log level")
+
+	_ = viper.BindPFlag("log_level", flags.Lookup("log-level"))
 }

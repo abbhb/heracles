@@ -2,6 +2,7 @@ package log
 
 import (
 	"os"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -42,6 +43,10 @@ func UpdateDefaultLogger() {
 	defaultLogger = newLogrusLogger(viper.GetViper())
 }
 
+func GetDefaultLogger() *logrus.Logger {
+	return defaultLogger
+}
+
 // NewLogger returns a configured logrus instance
 func NewLogger(cfg *viper.Viper) *logrus.Logger {
 	return newLogrusLogger(cfg)
@@ -53,10 +58,16 @@ func newLogrusLogger(cfg *viper.Viper) *logrus.Logger {
 
 	if cfg.GetBool("json_logs") {
 		l.Formatter = new(logrus.JSONFormatter)
+	} else {
+		l.Formatter = &logrus.TextFormatter{
+			TimestampFormat: time.TimeOnly,
+			FullTimestamp:   true,
+		}
+
 	}
 	l.Out = os.Stderr
 
-	switch cfg.GetString("loglevel") {
+	switch cfg.GetString("log_level") {
 	case "debug":
 		l.Level = logrus.DebugLevel
 	case "warning":

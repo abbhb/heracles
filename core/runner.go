@@ -5,7 +5,6 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
-	"strings"
 	"time"
 
 	"github.com/mrlyc/heracles/log"
@@ -139,21 +138,18 @@ func (c *MetricChecker) CheckMetrics(ctx context.Context, metricFamily map[strin
 		return eris.Wrap(err, "failed to build checkers")
 	}
 
-	var messages []string
+	var returnedError error
+
 	for _, checker := range checkers {
 		log.Debugf("checking metrics by checker %v", checker)
-
 		ok, message := checker.Check(metricFamily)
 		if !ok {
-			messages = append(messages, message)
+			log.Errorf("metrics check failed, %v", message)
+			returnedError = ErrCheck
 		}
 	}
 
-	if len(messages) > 0 {
-		return eris.Wrap(ErrCheck, "details: \n"+strings.Join(messages, "\n")+"\nresult")
-	}
-
-	return nil
+	return returnedError
 }
 
 func (c *MetricChecker) BuildChecker() ([]MetricFamiliesChecker, error) {
