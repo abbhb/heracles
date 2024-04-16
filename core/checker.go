@@ -139,6 +139,10 @@ type MetricLabelDisallowChecker struct {
 	disallowedLabels []string
 }
 
+func (m MetricLabelDisallowChecker) String() string {
+	return fmt.Sprintf("MetricLabelDisallowChecker{expectedMetric: %s, disallowedLabels: %v}", m.expectedMetric, m.disallowedLabels)
+}
+
 func NewMetricLabelDisallowChecker(expectedMetric string, disallowedLabels []string) *MetricLabelDisallowChecker {
 	return &MetricLabelDisallowChecker{
 		expectedMetric:   expectedMetric,

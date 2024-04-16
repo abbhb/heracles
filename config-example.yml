@@ -12,7 +12,7 @@ exporter:
       value: 1
     - name: pg_exporter_scrapes_total
       type: counter
-      disallowed_metrics:
+      disallowed_labels:
         - not_exist
     - name: pg_database_size_bytes
       labels:
