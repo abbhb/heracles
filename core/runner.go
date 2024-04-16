@@ -31,26 +31,32 @@ type Runner struct {
 	waitDuration time.Duration
 }
 
-func (r *Runner) SetupFixtures(ctx context.Context) error {
+func (r *Runner) SetupFixtures(ctx context.Context) ([]Fixture, error) {
+	setups := make([]Fixture, 0, len(r.fixtures))
 	for _, fixture := range r.fixtures {
 		log.Debugf("setting up fixture: %s", fixture)
 		if err := fixture.Setup(ctx); err != nil {
-			return eris.Wrap(err, "failed to setup fixture")
+			return setups, eris.Wrap(err, "failed to setup fixture")
 		}
+		setups = append(setups, fixture)
 	}
 
-	return nil
+	return setups, nil
 }
 
-func (r *Runner) TearDownFixtures(ctx context.Context) error {
-	for i := len(r.fixtures) - 1; i >= 0; i-- {
+func (r *Runner) TearDownFixtures(ctx context.Context, fixtures []Fixture) (ok bool) {
+	ok = true
+
+	for i := len(fixtures) - 1; i >= 0; i-- {
 		log.Debugf("tearing down fixture: %s", r.fixtures[i])
-		if err := r.fixtures[i].TearDown(ctx); err != nil {
-			return eris.Wrap(err, "failed to tear down fixture")
+		err := fixtures[i].TearDown(ctx)
+		if err != nil {
+			log.Errorf("failed to tear down fixtures: %+v", err)
+			ok = false
 		}
 	}
 
-	return nil
+	return ok
 }
 
 func (r *Runner) FetchMetricFamilies(ctx context.Context, baseUrl string) (map[string]*dto.MetricFamily, error) {
@@ -84,15 +90,14 @@ func (r *Runner) FetchMetricFamilies(ctx context.Context, baseUrl string) (map[s
 }
 
 func (r *Runner) Run(ctx context.Context, callback func(ctx context.Context, metricFamilies map[string]*dto.MetricFamily) error) error {
-	if err := r.SetupFixtures(ctx); err != nil {
-		return eris.Wrap(err, "failed to setup fixtures")
-	}
-
+	fixtures, err := r.SetupFixtures(ctx)
 	defer func() {
-		if err := r.TearDownFixtures(ctx); err != nil {
-			log.Errorf("failed to tear down fixtures: %+v", err)
-		}
+		r.TearDownFixtures(ctx, fixtures)
 	}()
+
+	if err != nil {
+		return err
+	}
 
 	baseUrl, err := r.exporter.Start(ctx)
 	if err != nil {

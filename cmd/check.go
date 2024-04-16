@@ -58,15 +58,31 @@ var checkCmd = &cobra.Command{
 				err := config.UnmarshalKey("metrics", &metrics)
 				return metrics, eris.Wrap(err, "metrics-config unmarshaling failed")
 			},
-			"script-fixtures": func(config *viper.Viper) ([]core.ScriptFixture, error) {
-				var scriptFixtures []core.ScriptFixture
-				err := config.UnmarshalKey("hooks", &scriptFixtures)
-				return scriptFixtures, eris.Wrap(err, "script-fixtures unmarshaling failed")
-			},
-			"fixtures": func(compose *core.DockerCompose, scriptFixtures []core.ScriptFixture) []core.Fixture {
+			"fixtures": func(compose *core.DockerCompose, config *viper.Viper) []core.Fixture {
 				fixtures := []core.Fixture{compose}
-				for _, fixture := range scriptFixtures {
-					fixtures = append(fixtures, fixture)
+
+				var hooks []core.ScriptHook
+				err := config.UnmarshalKey("hooks", &hooks)
+				if err != nil {
+					log.Warnf("hooks unmarshaling failed: %v", err)
+				}
+
+				for _, hook := range hooks {
+					if hook.Container == "" {
+						fixtures = append(fixtures, core.NewScriptFixture(
+							hook.Name,
+							hook.Setup,
+							hook.TearDown,
+						))
+					} else {
+						fixtures = append(fixtures, core.NewContainerScriptFixture(
+							compose,
+							hook.Name,
+							hook.Container,
+							hook.Setup,
+							hook.TearDown,
+						))
+					}
 				}
 
 				return fixtures

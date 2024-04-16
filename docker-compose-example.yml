@@ -6,16 +6,16 @@ services:
     ports:
       - 5432:5432
     environment:
-      - POSTGRES_PASSWORD=heracles
+      - POSTGRES_HOST_AUTH_METHOD=trust
       - POSTGRES_USER=mrlyc
-      - POSTGRES_DB=example
+      - POSTGRES_DB=heracles
     networks:
       - postgres_network
 
   exporter:
     image: quay.io/prometheuscommunity/postgres-exporter
     environment:
-      - DATA_SOURCE_NAME=postgresql://mrlyc:heracles@postgres:5432/example?sslmode=disable
+      - DATA_SOURCE_NAME=postgresql://mrlyc@postgres:5432/heracles?sslmode=disable
     ports:
       - "9187:9187"
     depends_on:

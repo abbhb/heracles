@@ -1,7 +1,7 @@
 exporter:
   compose_file: docker-compose-example.yml
   service: exporter
-  wait: 3s
+  wait: 1s
   path: /metrics
   allow_empty: false
   disallowed_metrics:
@@ -19,3 +19,17 @@ exporter:
         - datname
     - name: go_gc_duration_seconds
       type: summary
+  hooks:
+    - name: on-the-machine
+      setup:
+        - echo "setup on the machine"
+      teardown:
+        - echo "teardown on the machine"
+    - name: in-the-container
+      container: postgres
+      setup:
+        - echo "setup in the container"
+        - sleep 3s
+        - psql heracles mrlyc -c 'CREATE DATABASE example;'
+      teardown:
+        - echo "teardown in the container"

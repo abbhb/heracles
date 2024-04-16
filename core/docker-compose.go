@@ -63,14 +63,14 @@ func (c *DockerCompose) TearDown(ctx context.Context) error {
 }
 
 type DockerComposeExporter struct {
-	compose.ComposeStack
+	dockerCompose   *DockerCompose
 	exporterService string
 	startupTimeout  time.Duration
 }
 
 // Start wait for the service to be ready and returns the endpoint.
 func (e *DockerComposeExporter) Start(ctx context.Context) (string, error) {
-	container, err := e.ServiceContainer(ctx, e.exporterService)
+	container, err := e.dockerCompose.ServiceContainer(ctx, e.exporterService)
 	if err != nil {
 		return "", eris.Wrap(err, "failed to get service container")
 	}
@@ -78,7 +78,7 @@ func (e *DockerComposeExporter) Start(ctx context.Context) (string, error) {
 	strategy := wait.ForExposedPort().WithStartupTimeout(e.startupTimeout)
 	err = strategy.WaitUntilReady(ctx, container)
 	if err != nil {
-		return "", eris.Wrap(err, "failed to wait for service")
+		return "", eris.Wrapf(err, "failed to wait for service container: %s", e.exporterService)
 	}
 
 	endpoint, err := container.Endpoint(ctx, "http")
@@ -89,9 +89,9 @@ func (e *DockerComposeExporter) Start(ctx context.Context) (string, error) {
 	return endpoint, nil
 }
 
-func NewDockerComposeExporter(composeStack compose.ComposeStack, exporterService string, startupTimeout time.Duration) *DockerComposeExporter {
+func NewDockerComposeExporter(dockerCompose *DockerCompose, exporterService string, startupTimeout time.Duration) *DockerComposeExporter {
 	return &DockerComposeExporter{
-		ComposeStack:    composeStack,
+		dockerCompose:   dockerCompose,
 		exporterService: exporterService,
 		startupTimeout:  startupTimeout,
 	}
