@@ -171,36 +171,111 @@ func (c *MetricLabelDisallowChecker) Check(metricFamilies map[string]*dto.Metric
 	return true, ""
 }
 
-type MetricValueChecker struct {
-	expectedMetric string
-	expectedValue  float64
+type metricFilter struct {
+	Labels map[string]string
 }
 
-func (m MetricValueChecker) String() string {
-	return fmt.Sprintf("MetricValueChecker{expectedMetric: %s, expectedValue: %f}", m.expectedMetric, m.expectedValue)
-}
+func (f *metricFilter) isMetricMatch(metric *dto.Metric) bool {
+	matchedLabels := 0
 
-func NewMetricValueChecker(expectedMetric string, expectedValue float64) *MetricValueChecker {
-	return &MetricValueChecker{
-		expectedMetric: expectedMetric,
-		expectedValue:  expectedValue,
-	}
-}
-
-func (c *MetricValueChecker) Check(metricFamilies map[string]*dto.MetricFamily) (bool, string) {
-	metricFamily, ok := metricFamilies[c.expectedMetric]
-	if !ok {
-		return false, fmt.Sprintf("expected metric %s is missing", c.expectedMetric)
-	}
-
-	for _, metric := range metricFamily.GetMetric() {
-		gauge := metric.GetGauge()
-		if gauge == nil {
-			return false, fmt.Sprintf("expected metric %s is not a gauge", c.expectedMetric)
+	for _, label := range metric.GetLabel() {
+		value, ok := f.Labels[label.GetName()]
+		if ok && value != label.GetValue() {
+			return false
 		}
-		if gauge.GetValue() != c.expectedValue {
-			return false, fmt.Sprintf("expected metric %s to have value %.2f, but has %.2f", c.expectedMetric, c.expectedValue, gauge.GetValue())
+
+		matchedLabels++
+	}
+
+	return matchedLabels == len(f.Labels)
+}
+
+func newMetricFilter(labels map[string]string) *metricFilter {
+	return &metricFilter{
+		Labels: labels,
+	}
+}
+
+type MetricSampleChecker struct {
+	*metricFilter
+	Name string
+}
+
+func (m *MetricSampleChecker) String() string {
+	return fmt.Sprintf("MetricSampleChecker{Labels: %v}", m.Labels)
+}
+
+func (m *MetricSampleChecker) Check(metricFamilies map[string]*dto.MetricFamily) (bool, string) {
+	for _, metricFamily := range metricFamilies {
+		if metricFamily.GetName() != m.Name {
+			continue
+		}
+
+		for _, metric := range metricFamily.GetMetric() {
+			if m.isMetricMatch(metric) {
+				return true, ""
+			}
 		}
 	}
-	return true, ""
+
+	return false, fmt.Sprintf("expected sample not found in metric %s", m.Name)
+}
+
+func NewMetricSampleChecker(name string, labels map[string]string) *MetricSampleChecker {
+	return &MetricSampleChecker{
+		metricFilter: newMetricFilter(labels),
+		Name:         name,
+	}
+}
+
+type MetricSampleValueChecker struct {
+	*metricFilter
+	Name  string
+	Value float64
+}
+
+func (m *MetricSampleValueChecker) String() string {
+	return fmt.Sprintf("MetricValueChecker{Labels: %v, Value: %f}", m.Labels, m.Value)
+}
+
+func (m *MetricSampleValueChecker) Check(metricFamilies map[string]*dto.MetricFamily) (bool, string) {
+	for _, metricFamily := range metricFamilies {
+		if metricFamily.GetName() != m.Name {
+			continue
+		}
+
+		for _, metric := range metricFamily.GetMetric() {
+			if !m.isMetricMatch(metric) {
+				continue
+			}
+
+			var value float64
+			if metric.GetGauge() != nil {
+				value = metric.GetGauge().GetValue()
+			} else if metric.GetCounter() != nil {
+				value = metric.GetCounter().GetValue()
+			} else if metric.GetSummary() != nil {
+				value = metric.GetSummary().GetSampleSum()
+			} else if metric.GetHistogram() != nil {
+				value = metric.GetHistogram().GetSampleSum()
+			} else if metric.GetUntyped() != nil {
+				value = metric.GetUntyped().GetValue()
+			} else {
+				return false, fmt.Sprintf("expected value %f, but got nil in metric %s", value, m.Name)
+			}
+
+			if value == m.Value {
+				return true, ""
+			}
+		}
+	}
+	return false, fmt.Sprintf("expected value %f not found in metric %s", m.Value, m.Name)
+}
+
+func NewMetricSampleValueChecker(name string, labels map[string]string, value float64) *MetricSampleValueChecker {
+	return &MetricSampleValueChecker{
+		metricFilter: newMetricFilter(labels),
+		Name:         name,
+		Value:        value,
+	}
 }

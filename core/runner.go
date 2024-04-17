@@ -15,12 +15,17 @@ import (
 
 var ErrCheck = errors.New("check failed")
 
+type MetricSample struct {
+	Labels map[string]string `json:"labels,omitempty"`
+	Value  *float64          `json:"value"`
+}
+
 type MetricsConfig struct {
-	Name             string   `mapstructure:"name"`
-	Type             string   `mapstructure:"type"`
-	Value            *float64 `mapstructure:"value"`
-	Labels           []string `mapstructure:"labels"`
-	DisallowedLabels []string `mapstructure:"disallowed_labels"`
+	Name             string         `mapstructure:"name"`
+	Type             string         `mapstructure:"type"`
+	Labels           []string       `mapstructure:"labels"`
+	DisallowedLabels []string       `mapstructure:"disallowed_labels"`
+	Samples          []MetricSample `mapstructure:"samples"`
 }
 
 type Runner struct {
@@ -176,16 +181,20 @@ func (c *MetricChecker) BuildChecker() ([]MetricFamiliesChecker, error) {
 			checkerBuilder.MetricTypeChecker(metric.Name, metric.Type)
 		}
 
-		if metric.Value != nil {
-			checkerBuilder.MetricValueChecker(metric.Name, *metric.Value)
-		}
-
 		if len(metric.Labels) != 0 {
 			checkerBuilder.MetricLabelChecker(metric.Name, metric.Labels...)
 		}
 
 		if len(metric.DisallowedLabels) != 0 {
 			checkerBuilder.MetricLabelDisallowChecker(metric.Name, metric.DisallowedLabels...)
+		}
+
+		for _, sample := range metric.Samples {
+			checkerBuilder.MetricSampleChecker(metric.Name, sample.Labels)
+
+			if sample.Value != nil {
+				checkerBuilder.MetricSampleValueChecker(metric.Name, sample.Labels, *sample.Value)
+			}
 		}
 	}
 

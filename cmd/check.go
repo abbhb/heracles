@@ -32,7 +32,7 @@ var checkCmd = &cobra.Command{
 				}
 
 				config.SetDefault("compose_file", "docker-compose.yml")
-				config.SetDefault("service", "exporter")
+				config.SetDefault("container", "exporter")
 				config.SetDefault("base_url", "")
 				config.SetDefault("path", "/metrics")
 				config.SetDefault("wait", 3*time.Second)
@@ -51,7 +51,7 @@ var checkCmd = &cobra.Command{
 				if config.GetString("base_url") == "" {
 					return core.NewDockerComposeExporter(
 						compose,
-						config.GetString("service"),
+						config.GetString("container"),
 						config.GetDuration("wait"),
 					)
 				} else {
