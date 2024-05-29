@@ -97,6 +97,10 @@ func (c *ContainerScriptFixture) String() string {
 }
 
 func (c *ContainerScriptFixture) runInContainer(ctx context.Context, scripts []string) error {
+	if len(scripts) == 0 {
+		return nil
+	}
+
 	container, err := c.dockerCompose.ServiceContainer(ctx, c.Container)
 	if err != nil {
 		return eris.Wrap(err, "failed to get container")
@@ -132,18 +136,10 @@ func (c *ContainerScriptFixture) runInContainer(ctx context.Context, scripts []s
 }
 
 func (c *ContainerScriptFixture) Setup(ctx context.Context) error {
-	if len(c.SetupCommands) == 0 {
-		return nil
-	}
-
 	return c.runInContainer(ctx, c.SetupCommands)
 }
 
 func (c *ContainerScriptFixture) TearDown(ctx context.Context) error {
-	if len(c.TeardownCommands) == 0 {
-		return nil
-	}
-
 	return c.runInContainer(ctx, c.TeardownCommands)
 }
 
