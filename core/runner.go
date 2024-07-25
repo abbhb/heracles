@@ -11,9 +11,20 @@ import (
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
 	"github.com/rotisserie/eris"
+	"gopkg.in/yaml.v3"
 )
 
 var ErrCheck = errors.New("check failed")
+
+type CheckReport struct {
+	Success bool                         `json:"success"`
+	Metrics map[string]*dto.MetricFamily `json:"inputs"`
+	Results map[string]string            `json:"outputs"`
+}
+
+func (c *CheckReport) Yaml() ([]byte, error) {
+	return yaml.Marshal(c)
+}
 
 type MetricSample struct {
 	Labels map[string]string `json:"labels,omitempty"`
@@ -142,13 +153,18 @@ type MetricChecker struct {
 	metrics           []MetricsConfig
 }
 
-func (c *MetricChecker) CheckMetrics(ctx context.Context, metricFamily map[string]*dto.MetricFamily) error {
+func (c *MetricChecker) CheckMetrics(ctx context.Context, metricFamily map[string]*dto.MetricFamily) (*CheckReport, error) {
 	checkers, err := c.BuildChecker()
 	if err != nil {
-		return eris.Wrap(err, "failed to build checkers")
+		return nil, eris.Wrap(err, "failed to build checkers")
 	}
 
 	var returnedError error
+	report := &CheckReport{
+		Success: true,
+		Metrics: metricFamily,
+		Results: make(map[string]string, len(checkers)),
+	}
 
 	for _, checker := range checkers {
 		log.Debugf("checking metrics by checker %v", checker)
@@ -157,9 +173,11 @@ func (c *MetricChecker) CheckMetrics(ctx context.Context, metricFamily map[strin
 			log.Errorf("metrics check failed, %v", message)
 			returnedError = ErrCheck
 		}
+
+		report.Results[checker.String()] = message
 	}
 
-	return returnedError
+	return report, returnedError
 }
 
 func (c *MetricChecker) BuildChecker() ([]MetricFamiliesChecker, error) {
@@ -201,8 +219,13 @@ func (c *MetricChecker) BuildChecker() ([]MetricFamiliesChecker, error) {
 	return checkerBuilder.Build(), nil
 }
 
-func (c *MetricChecker) Check(ctx context.Context) error {
-	return c.Run(ctx, c.CheckMetrics)
+func (c *MetricChecker) Check(ctx context.Context) (checkReport *CheckReport, checkErr error) {
+	checkErr = c.Run(ctx, func(ctx context.Context, metricFamilies map[string]*dto.MetricFamily) error {
+		report, err := c.CheckMetrics(ctx, metricFamilies)
+		checkReport = report
+		return err
+	})
+	return
 }
 
 func NewMetricChecker(

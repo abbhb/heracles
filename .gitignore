@@ -98,3 +98,4 @@ $RECYCLE.BIN/
 
 # End of https://www.toptal.com/developers/gitignore/api/golang,visualstudiocode,macos,linux,windows
 bin/
+heracles-report.yml

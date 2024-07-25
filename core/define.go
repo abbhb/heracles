@@ -17,6 +17,7 @@ type Exporter interface {
 }
 
 type MetricFamiliesChecker interface {
+	String() string
 	Check(metricFamily map[string]*dto.MetricFamily) (bool, string)
 }
 

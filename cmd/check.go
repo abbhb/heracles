@@ -31,6 +31,7 @@ var checkCmd = &cobra.Command{
 					log.Fatalf("invalid group: %s", group)
 				}
 
+				config.SetDefault("report_file", "heracles-report.yml")
 				config.SetDefault("compose_file", "docker-compose.yml")
 				config.SetDefault("container", "exporter")
 				config.SetDefault("base_url", "")
@@ -110,8 +111,20 @@ var checkCmd = &cobra.Command{
 			}
 		}
 
-		err := container.Invoke(func(ctx context.Context, checker *core.MetricChecker) error {
-			return checker.Check(ctx)
+		err := container.Invoke(func(ctx context.Context, checker *core.MetricChecker, config *viper.Viper) error {
+			report, checkErr := checker.Check(ctx)
+
+			dumped, err := report.Yaml()
+			if err != nil {
+				return eris.Wrap(err, "failed to dump check report")
+			}
+
+			err = os.WriteFile(config.GetString("report_file"), dumped, 0644)
+			if err != nil {
+				return eris.Wrap(err, "failed to write check report")
+			}
+
+			return checkErr
 		})
 
 		switch eris.Cause(err) {

@@ -7,12 +7,14 @@ import (
 	dto "github.com/prometheus/client_model/go"
 )
 
+var okMessage = "ok!"
+
 type DisallowCertainMetricsChecker struct {
 	disallowedMetrics []string
 }
 
 func (d DisallowCertainMetricsChecker) String() string {
-	return fmt.Sprintf("DisallowCertainMetricsChecker{disallowedMetrics: %v}", d.disallowedMetrics)
+	return fmt.Sprintf("DisallowCertainMetricsChecker{metrics: %v}", d.disallowedMetrics)
 }
 
 func NewDisallowCertainMetricsChecker(metrics []string) *DisallowCertainMetricsChecker {
@@ -27,7 +29,7 @@ func (c *DisallowCertainMetricsChecker) Check(metricFamilies map[string]*dto.Met
 			return false, fmt.Sprintf("metric %s is disallowed but was found", metric)
 		}
 	}
-	return true, ""
+	return true, okMessage
 }
 
 type DisallowEmptyMetricsChecker struct{}
@@ -44,7 +46,7 @@ func (c *DisallowEmptyMetricsChecker) Check(metricFamilies map[string]*dto.Metri
 	if len(metricFamilies) == 0 {
 		return false, "metricFamilies should not be empty"
 	}
-	return true, ""
+	return true, okMessage
 }
 
 type SingleMetricExistsChecker struct {
@@ -52,7 +54,7 @@ type SingleMetricExistsChecker struct {
 }
 
 func (s SingleMetricExistsChecker) String() string {
-	return fmt.Sprintf("SingleMetricExistsChecker{expectedMetric: %s}", s.expectedMetric)
+	return fmt.Sprintf("SingleMetricExistsChecker{metric: %s}", s.expectedMetric)
 }
 
 func NewSingleMetricExistsChecker(expectedMetric string) *SingleMetricExistsChecker {
@@ -66,7 +68,7 @@ func (c *SingleMetricExistsChecker) Check(metricFamilies map[string]*dto.MetricF
 	if !ok {
 		return false, fmt.Sprintf("expected metric %s is missing", c.expectedMetric)
 	}
-	return true, ""
+	return true, okMessage
 }
 
 type SingleMetricTypeChecker struct {
@@ -75,7 +77,7 @@ type SingleMetricTypeChecker struct {
 }
 
 func (s SingleMetricTypeChecker) String() string {
-	return fmt.Sprintf("SingleMetricTypeChecker{expectedMetric: %s, expectedType: %s}", s.expectedMetric, s.expectedType)
+	return fmt.Sprintf("SingleMetricTypeChecker{metric: %s, type: %s}", s.expectedMetric, s.expectedType)
 }
 
 func NewSingleMetricTypeChecker(expectedMetric string, expectedType string) *SingleMetricTypeChecker {
@@ -94,7 +96,7 @@ func (c *SingleMetricTypeChecker) Check(metricFamilies map[string]*dto.MetricFam
 	if metricType.String() != strings.ToUpper(c.expectedType) {
 		return false, fmt.Sprintf("expected metric %s should be of type %s but was %s", c.expectedMetric, c.expectedType, metricFamily.GetType())
 	}
-	return true, ""
+	return true, okMessage
 }
 
 type MetricLabelChecker struct {
@@ -103,7 +105,7 @@ type MetricLabelChecker struct {
 }
 
 func (m MetricLabelChecker) String() string {
-	return fmt.Sprintf("MetricLabelChecker{expectedMetric: %s, expectedLabels: %v}", m.expectedMetric, m.expectedLabels)
+	return fmt.Sprintf("MetricLabelChecker{metric: %s, labels: %v}", m.expectedMetric, m.expectedLabels)
 }
 
 func NewMetricLabelChecker(expectedMetric string, expectedLabels []string) *MetricLabelChecker {
@@ -131,7 +133,7 @@ func (c *MetricLabelChecker) Check(metricFamilies map[string]*dto.MetricFamily) 
 			}
 		}
 	}
-	return true, ""
+	return true, okMessage
 }
 
 type MetricLabelDisallowChecker struct {
@@ -140,7 +142,7 @@ type MetricLabelDisallowChecker struct {
 }
 
 func (m MetricLabelDisallowChecker) String() string {
-	return fmt.Sprintf("MetricLabelDisallowChecker{expectedMetric: %s, disallowedLabels: %v}", m.expectedMetric, m.disallowedLabels)
+	return fmt.Sprintf("MetricLabelDisallowChecker{metric: %s, labels: %v}", m.expectedMetric, m.disallowedLabels)
 }
 
 func NewMetricLabelDisallowChecker(expectedMetric string, disallowedLabels []string) *MetricLabelDisallowChecker {
@@ -168,18 +170,18 @@ func (c *MetricLabelDisallowChecker) Check(metricFamilies map[string]*dto.Metric
 			}
 		}
 	}
-	return true, ""
+	return true, okMessage
 }
 
 type metricFilter struct {
-	Labels map[string]string
+	labels map[string]string
 }
 
 func (f *metricFilter) isMetricMatch(metric *dto.Metric) bool {
 	matchedLabels := 0
 
 	for _, label := range metric.GetLabel() {
-		value, ok := f.Labels[label.GetName()]
+		value, ok := f.labels[label.GetName()]
 		if ok && value != label.GetValue() {
 			return false
 		}
@@ -187,12 +189,12 @@ func (f *metricFilter) isMetricMatch(metric *dto.Metric) bool {
 		matchedLabels++
 	}
 
-	return matchedLabels == len(f.Labels)
+	return matchedLabels == len(f.labels)
 }
 
 func newMetricFilter(labels map[string]string) *metricFilter {
 	return &metricFilter{
-		Labels: labels,
+		labels: labels,
 	}
 }
 
@@ -202,7 +204,7 @@ type MetricSampleChecker struct {
 }
 
 func (m *MetricSampleChecker) String() string {
-	return fmt.Sprintf("MetricSampleChecker{Labels: %v}", m.Labels)
+	return fmt.Sprintf("MetricSampleChecker{labels: %v}", m.labels)
 }
 
 func (m *MetricSampleChecker) Check(metricFamilies map[string]*dto.MetricFamily) (bool, string) {
@@ -213,7 +215,7 @@ func (m *MetricSampleChecker) Check(metricFamilies map[string]*dto.MetricFamily)
 
 		for _, metric := range metricFamily.GetMetric() {
 			if m.isMetricMatch(metric) {
-				return true, ""
+				return true, okMessage
 			}
 		}
 	}
@@ -231,11 +233,11 @@ func NewMetricSampleChecker(name string, labels map[string]string) *MetricSample
 type MetricSampleValueChecker struct {
 	*metricFilter
 	Name  string
-	Value float64
+	value float64
 }
 
 func (m *MetricSampleValueChecker) String() string {
-	return fmt.Sprintf("MetricValueChecker{Labels: %v, Value: %f}", m.Labels, m.Value)
+	return fmt.Sprintf("MetricValueChecker{labels: %v, value: %f}", m.labels, m.value)
 }
 
 func (m *MetricSampleValueChecker) Check(metricFamilies map[string]*dto.MetricFamily) (bool, string) {
@@ -264,18 +266,18 @@ func (m *MetricSampleValueChecker) Check(metricFamilies map[string]*dto.MetricFa
 				return false, fmt.Sprintf("expected value %f, but got nil in metric %s", value, m.Name)
 			}
 
-			if value == m.Value {
-				return true, ""
+			if value == m.value {
+				return true, okMessage
 			}
 		}
 	}
-	return false, fmt.Sprintf("expected value %f not found in metric %s", m.Value, m.Name)
+	return false, fmt.Sprintf("expected value %f not found in metric %s", m.value, m.Name)
 }
 
 func NewMetricSampleValueChecker(name string, labels map[string]string, value float64) *MetricSampleValueChecker {
 	return &MetricSampleValueChecker{
 		metricFilter: newMetricFilter(labels),
 		Name:         name,
-		Value:        value,
+		value:        value,
 	}
 }
