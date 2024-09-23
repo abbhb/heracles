@@ -2,32 +2,35 @@ package core
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/rotisserie/eris"
-	"github.com/testcontainers/testcontainers-go/wait"
 )
 
 type DockerComposeExporter struct {
 	dockerCompose   *DockerCompose
 	exporterService string
+	exporterHost    string
+	exporterPort    string
 	startupTimeout  time.Duration
 }
 
 // Start wait for the service to be ready and returns the endpoint.
 func (e *DockerComposeExporter) Start(ctx context.Context) (string, error) {
-	container, err := e.dockerCompose.ServiceContainer(ctx, e.exporterService)
+	_, err := e.dockerCompose.ServiceContainer(ctx, e.exporterService)
 	if err != nil {
 		return "", eris.Wrap(err, "failed to get service container")
 	}
 
-	strategy := wait.ForExposedPort().WithStartupTimeout(e.startupTimeout)
-	err = strategy.WaitUntilReady(ctx, container)
-	if err != nil {
-		return "", eris.Wrapf(err, "failed to wait for service container: %s", e.exporterService)
-	}
+	//strategy := wait.ForHealthCheck().WithStartupTimeout(e.startupTimeout)
+	//err = strategy.WaitUntilReady(ctx, container)
+	//if err != nil {
+	//	return "", eris.Wrapf(err, "failed to wait for service container: %s", e.exporterService)
+	//}
 
-	endpoint, err := container.Endpoint(ctx, "http")
+	//endpoint, err := container.Endpoint(ctx, "http")
+	endpoint := fmt.Sprintf("http://%s:%s", e.exporterHost, e.exporterPort)
 	if err != nil {
 		return "", eris.Wrap(err, "failed to get endpoint")
 	}
@@ -35,10 +38,12 @@ func (e *DockerComposeExporter) Start(ctx context.Context) (string, error) {
 	return endpoint, nil
 }
 
-func NewDockerComposeExporter(dockerCompose *DockerCompose, exporterService string, startupTimeout time.Duration) *DockerComposeExporter {
+func NewDockerComposeExporter(dockerCompose *DockerCompose, exporterService string, exporterHost string, exporterPort string, startupTimeout time.Duration) *DockerComposeExporter {
 	return &DockerComposeExporter{
 		dockerCompose:   dockerCompose,
 		exporterService: exporterService,
+		exporterHost:    exporterHost,
+		exporterPort:    exporterPort,
 		startupTimeout:  startupTimeout,
 	}
 }

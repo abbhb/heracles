@@ -35,6 +35,8 @@ var checkCmd = &cobra.Command{
 				config.SetDefault("compose_file", "docker-compose.yml")
 				config.SetDefault("container", "exporter")
 				config.SetDefault("base_url", "")
+				config.SetDefault("exporter_host", "127.0.0.1")
+				config.SetDefault("exporter_port", "9601")
 				config.SetDefault("path", "/metrics")
 				config.SetDefault("wait", 3*time.Second)
 				config.SetDefault("allow_empty", false)
@@ -53,6 +55,8 @@ var checkCmd = &cobra.Command{
 					return core.NewDockerComposeExporter(
 						compose,
 						config.GetString("container"),
+						config.GetString("exporter_host"),
+						config.GetString("exporter_port"),
 						config.GetDuration("wait"),
 					)
 				} else {

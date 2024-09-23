@@ -1,6 +1,8 @@
 exporter:
   compose_file: docker-compose-example.yml
   container: exporter
+  exporter_host: 127.0.0.1 #默认值
+  exporter_port: 9601 #要求提供docker-compose暴露的exporter端口
   wait: 1s
   path: /metrics
   allow_empty: false
