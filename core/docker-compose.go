@@ -22,7 +22,6 @@ func NewDockerCompose(composeFilePath string, RemoveAllImages bool) (*DockerComp
 	if err != nil {
 		return nil, eris.Wrap(err, "failed to create docker compose")
 	}
-
 	return &DockerCompose{
 		ComposeStack:    compose,
 		RemoveAllImages: RemoveAllImages,
