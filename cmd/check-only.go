@@ -46,11 +46,10 @@ var checkOnlyCmd = &cobra.Command{
 
 				return config
 			},
-
-			"exporter": func(config *viper.Viper, compose *core.DockerCompose) core.Exporter {
+			"exporter": func(config *viper.Viper) core.Exporter {
 				if config.GetString("base_url") == "" {
-					log.Fatalf("failed to provide base_url")
-					return nil
+					return core.NewExternalExporter("http://" + config.GetString("exporter_host") +
+						":" + config.GetString("exporter_port"))
 				} else {
 					return core.NewExternalExporter(config.GetString("base_url"))
 				}
@@ -60,39 +59,10 @@ var checkOnlyCmd = &cobra.Command{
 				err := config.UnmarshalKey("metrics", &metrics)
 				return metrics, eris.Wrap(err, "metrics-config unmarshaling failed")
 			},
-			"fixtures": func(compose *core.DockerCompose, config *viper.Viper) []core.Fixture {
-				fixtures := []core.Fixture{compose}
-
-				var hooks []core.ScriptHook
-				err := config.UnmarshalKey("hooks", &hooks)
-				if err != nil {
-					log.Warnf("hooks unmarshaling failed: %v", err)
-				}
-
-				for _, hook := range hooks {
-					if hook.Container == "" {
-						fixtures = append(fixtures, core.NewScriptFixture(
-							hook.Name,
-							hook.Setup,
-							hook.TearDown,
-						))
-					} else {
-						fixtures = append(fixtures, core.NewContainerScriptFixture(
-							compose,
-							hook.Name,
-							hook.Container,
-							hook.Setup,
-							hook.TearDown,
-						))
-					}
-				}
-
-				return fixtures
-			},
-			"metric-checker": func(exporter core.Exporter, fixtures []core.Fixture, config *viper.Viper, metrics []core.MetricsConfig) *core.MetricChecker {
+			"metric-checker": func(exporter core.Exporter, config *viper.Viper, metrics []core.MetricsConfig) *core.MetricChecker {
 				return core.NewMetricChecker(
 					exporter,
-					fixtures,
+					nil,
 					config.GetString("path"),
 					config.GetStringSlice("disallowed_metrics"),
 					config.GetBool("allow_empty"),
@@ -136,9 +106,9 @@ var checkOnlyCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(checkCmd)
+	rootCmd.AddCommand(checkOnlyCmd)
 
-	flags := checkCmd.Flags()
+	flags := checkOnlyCmd.Flags()
 	flags.StringP("group", "g", "exporter", "config group")
 	flags.Bool("remove-all-images", false, "remove all images after check")
 }
